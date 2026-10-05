@@ -1,0 +1,690 @@
+
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{float}
+\usepackage[spanish,english]{babel}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Sistema predictivo de recomendación de cultivos para la optimización agrícola}
+
+\author{
+\IEEEauthorblockN{1\textsuperscript{st} Jonatan Romero}
+\IEEEauthorblockA{
+\textit{Ingeniería de Sistemas} \\
+\textit{Universidad de Antioquia}\\
+\textit{Medellín, Antioquia}\\
+\textit{jonatan.romeroa@udea.edu.co}\\
+}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Sebastian Berrio}
+\IEEEauthorblockA{
+\textit{Ingeniería de Sistemas} \\
+\textit{Universidad de Antioquia}\\
+\textit{Medellín, Antioquia}\\
+\textit{sebastian.berriom@udea.edu.co}\\
+}
+\and
+\IEEEauthorblockN{3\textsuperscript{rd} [Cristian Diez]}
+\IEEEauthorblockA{
+\textit{Ingeniería de Sistemas} \\
+\textit{Universidad de Antioquia}\\
+\textit{Medellín, Antioquia}\\
+\textit{cristian.diez@udea.edu.co}\\
+}
+}
+
+\maketitle
+
+\selectlanguage{spanish}
+
+\begin{abstract}
+La selección del cultivo adecuado para un terreno depende de la interacción entre las propiedades fisicoquímicas del suelo y las condiciones climáticas de la zona. Cuando esta decisión se toma únicamente a partir de la experiencia o de criterios generales, puede conducir a recomendaciones poco precisas, pérdida de recursos y bajo rendimiento. En este proyecto se desarrolla un sistema predictivo basado en aprendizaje automático que recomienda el cultivo más apto a partir de siete variables: nitrógeno, fósforo, potasio, temperatura, humedad relativa, pH y precipitación. Se utiliza un conjunto de datos público de 2200 muestras distribuidas de forma balanceada en 22 cultivos, sin datos faltantes ni registros duplicados. El problema se formula como una tarea de clasificación multiclase supervisada. El análisis exploratorio muestra que el potasio, la humedad y el fósforo son las variables con mayor capacidad de separación entre clases, y que existe una correlación fuerte entre fósforo y potasio ($r=0.74$). Se compararán modelos de distintas familias: regresión logística, K vecinos más cercanos, Random Forest, redes neuronales artificiales y máquinas de soporte vectorial, bajo validación cruzada estratificada y métricas de exactitud y F1 macro. Además, se estudiará el efecto de la selección de características y de la reducción de dimensionalidad mediante PCA y UMAP sobre el desempeño predictivo.
+\end{abstract}
+
+\renewcommand{\IEEEkeywordsname}{Palabras clave}
+
+\begin{IEEEkeywords}
+aprendizaje automático, recomendación de cultivos, clasificación multiclase, agricultura de precisión, redes neuronales, PCA, UMAP.
+\end{IEEEkeywords}
+
+\selectlanguage{english}
+\begin{abstract}
+The selection of the appropriate crop for a given plot of land depends on the interaction between the physicochemical properties of the soil and the climatic conditions of the area. When this decision is made solely based on experience or general criteria, it can lead to inaccurate recommendations, loss of resources, and low yields. In this project, a predictive system based on machine learning is developed to recommend the most suitable crop based on seven variables: nitrogen, phosphorus, potassium, temperature, relative humidity, pH, and precipitation. A public dataset of 2200 samples is used, distributed in a balanced manner across 22 crops, with no missing data or duplicate records. The problem is formulated as a supervised multiclass classification task. Exploratory analysis shows that potassium, humidity, and phosphorus are the variables with the greatest class separation capacity, and there is a strong correlation between phosphorus and potassium ($r=0.74$). Models from different families will be compared: logistic regression, K-nearest neighbors, Random Forest, artificial neural networks, and support vector machines, under stratified cross-validation using accuracy and macro F1 metrics. Furthermore, the effect of feature selection and dimensionality reduction through PCA and UMAP on predictive performance will be studied.
+\end{abstract}
+
+\renewcommand{\IEEEkeywordsname}{Index Terms}
+
+\begin{IEEEkeywords}
+machine learning, crop recommendation, multiclass classification, precision agriculture, neural networks, PCA, UMAP.
+\end{IEEEkeywords}
+
+\selectlanguage{spanish}
+
+
+\section{Introducción}
+
+
+La agricultura sigue siendo una de las principales fuentes de alimento, empleo e ingresos en países en desarrollo. Sin embargo, el rendimiento de un cultivo está condicionado por factores que varían entre regiones e incluso entre lotes de una misma finca: la disponibilidad de macronutrientes del suelo (nitrógeno N, fósforo P y potasio K), su nivel de acidez (pH) y las condiciones meteorológicas (temperatura, humedad y precipitación). Elegir un cultivo poco adecuado para estas condiciones implica sobrecostos en fertilización y riego, menor productividad y, en el largo plazo, degradación del suelo.
+
+Tradicionalmente, esta decisión se apoya en la experiencia del agricultor o en recomendaciones generales por región. El problema es que la relación entre las variables y la idoneidad de cada cultivo es \emph{multivariable y no lineal}: un mismo valor de lluvia puede ser favorable para un cultivo con alto contenido de potasio y desfavorable para otro. Considerar simultáneamente siete variables y 22 alternativas excede lo que puede resolverse con reglas simples.
+
+El aprendizaje automático (ML, por sus siglas en inglés) es adecuado para este escenario porque permite aprender, a partir de ejemplos etiquetados, las fronteras que separan las condiciones asociadas a cada cultivo, sin necesidad de definir explícitamente esas reglas. Un modelo entrenado puede integrarse en herramientas de apoyo a la decisión (aplicaciones web o móviles alimentadas por análisis de suelo o sensores IoT) y ofrecer recomendaciones inmediatas y de bajo costo. Este tipo de sistemas es uno de los componentes centrales de la llamada \emph{agricultura de precisión} \cite{thilakarathne2022,shastri2025}.
+
+El objetivo de este proyecto es construir un sistema que reciba las siete variables de un terreno y devuelva el cultivo recomendado, comparando modelos de diferentes familias bajo una metodología experimental común y analizando si es posible reducir el número de variables sin afectar significativamente el desempeño.
+
+
+\section{Descripción del problema}
+
+\subsection{Contexto y justificación}
+La selección del cultivo más apropiado para un terreno constituye una decisión que depende de múltiples factores, entre los que se encuentran las propiedades fisicoquímicas del suelo y las condiciones meteorológicas, las cuales varían significativamente entre diferentes regiones[cite: 1]. Una recomendación basada únicamente en una característica individual o en la experiencia puede ser insuficiente, debido a que la relación entre las condiciones del suelo, el clima y el desarrollo de un cultivo es multivariable y no lineal[cite: 1]. Por esta razón, resulta fundamental considerar simultáneamente diferentes variables para identificar patrones que permitan diferenciar entre las alternativas de cultivo[cite: 1]. El problema abordado en este proyecto consiste en determinar qué cultivo resulta más adecuado a partir de un conjunto de variables de entrada relacionadas con las condiciones agrícolas del terreno, con el fin de optimizar el rendimiento y evitar la degradación del suelo[cite: 1].
+
+\subsection{Composición de la base de datos}
+Para el desarrollo del proyecto se utiliza un conjunto de datos de recomendación de cultivos compuesto por información relacionada con características del suelo y condiciones climáticas[cite: 1]. El conjunto de datos de referencia contiene 2200 registros y considera 22 clases correspondientes a diferentes cultivos (distribuidos de forma perfectamente balanceada con 100 muestras por clase)[cite: 1].
+
+Cada registro contiene siete variables de entrada numéricas:
+\begin{itemize}
+    \item \textbf{N}: cantidad de nitrógeno disponible en el suelo[cite: 1].
+    \item \textbf{P}: cantidad de fósforo disponible en el suelo[cite: 1].
+    \item \textbf{K}: cantidad de potasio disponible en el suelo[cite: 1].
+    \item \textbf{Temperatura}: temperatura registrada para las condiciones del terreno (en °C)[cite: 1].
+    \item \textbf{Humedad}: porcentaje de humedad relativa presente en el ambiente[cite: 1].
+    \item \textbf{pH}: nivel de acidez o alcalinidad del suelo[cite: 1].
+    \item \textbf{Lluvia}: cantidad de precipitación registrada (en mm)[cite: 1].
+\end{itemize}
+
+De acuerdo con la exploración inicial de los datos, las variables de entrada son de tipo numérico (enteros y punto flotante), por lo que no requieren codificación adicional de variables categóricas[cite: 1, 14]. La variable objetivo corresponde al tipo de cultivo recomendado y es de naturaleza categórica, por lo que requerirá ser transformada (codificada) al formato numérico utilizado por los algoritmos durante la fase de entrenamiento[cite: 1, 14]. Adicionalmente, la revisión exhaustiva de la estructura de los datos determinó que no existen valores faltantes ni registros duplicados, por lo que no fue necesario aplicar ninguna estrategia de imputación de datos[cite: 1, 14].
+
+\subsection{Paradigma de aprendizaje}
+El problema se aborda bajo el paradigma de \textbf{aprendizaje supervisado}, debido a que cada muestra en el conjunto de datos posee una variable objetivo conocida (etiqueta) correspondiente al cultivo asociado a esas condiciones particulares[cite: 1]. Específicamente, la tarea corresponde a una \textbf{clasificación multiclase}, ya que la variable objetivo puede tomar 22 valores discretos diferentes[cite: 1, 14].
+
+Formalmente, dado un conjunto de observaciones:
+\begin{equation}
+D = \{(x_i,y_i)\}_{i=1}^{n}
+\end{equation}
+donde $x_i$ representa el conjunto de las siete características de la muestra $i$ y $y_i$ representa el cultivo correspondiente, el objetivo consiste en encontrar una función $f:X\rightarrow Y$ que permita predecir la clase correspondiente a nuevas observaciones[cite: 1]. La elección de este paradigma resulta apropiada porque permite evaluar directamente la capacidad de generalización de los modelos utilizando ejemplos previamente etiquetados[cite: 1].
+
+
+
+\section{Estado del arte}
+
+El aprendizaje automático aplicado a la recomendación de cultivos ha sido estudiado mediante diferentes algoritmos de clasificación, evaluando la interacción entre las características fisicoquímicas del suelo y las condiciones climáticas. A continuación, se describen cuatro trabajos relevantes en la literatura reciente que abordan este problema.
+
+Thilakarathne et al. (2022) desarrollaron una plataforma de recomendación de cultivos basada en aprendizaje automático y computación en la nube. Los autores utilizaron un conjunto de datos público con 2200 registros y siete características predictoras (nitrógeno, fósforo, potasio, temperatura, humedad, pH y precipitación) para recomendar entre 22 clases de cultivos[cite: 1, 14]. El problema fue formulado bajo un paradigma de clasificación supervisada[cite: 1]. Evaluaron algoritmos como K-Nearest Neighbors (KNN), Decision Tree, Random Forest, XGBoost y Support Vector Machine (SVM)[cite: 1]. La evaluación del desempeño reportó resultados destacados para Random Forest, siendo el modelo seleccionado para operar en su plataforma de recomendación final[cite: 1, 14].
+
+Dey, Ferdous y Ahmed (2024) implementaron un sistema de recomendación enfocado en cultivos agrícolas y hortícolas en India[cite: 1]. En su estudio, utilizaron información de NPK, el nivel de pH del suelo y tres variables climáticas (temperatura, lluvia y humedad) como predictores[cite: 1, 14]. Su metodología consistió en comparar clasificadores supervisados, incluyendo SVM, XGBoost, Random Forest, KNN y Decision Tree[cite: 1, 14]. Los autores utilizaron métricas de precisión, donde XGBoost obtuvo los mejores resultados dentro de sus experimentos, alcanzando precisiones de 99.09\% para cultivos agrícolas, 99.30\% para cultivos hortícolas, y 98.51\% en la categoría combinada[cite: 1, 14].
+
+Prity et al. (2024) presentaron una aproximación analítica para mejorar la productividad agrícola mediante un sistema de recomendación de cultivos[cite: 1, 14]. El estudio formuló el problema como clasificación supervisada, evaluando múltiples algoritmos como Logistic Regression, SVM, KNN, Decision Tree, Random Forest, Bagging, AdaBoost, Gradient Boosting y Extra Trees[cite: 1, 14]. Los experimentos utilizaron variables asociadas con temperatura, lluvia, humedad, pH y nutrientes del suelo[cite: 1, 14]. La evaluación del desempeño se midió a través de la métrica de exactitud (accuracy) sobre un conjunto de prueba, donde el algoritmo de Random Forest logró el mejor desempeño reportado por los autores, alcanzando un 99.31\% de exactitud[cite: 1, 14].
+
+Finalmente, un trabajo reciente propuesto por Alam et al. (2025) desarrolló un enfoque de recomendación de cultivos que incorpora la cuantificación de incertidumbre en los modelos de Machine Learning[cite: 1, 14]. El estudio utilizó un conjunto de datos de 2200 muestras con siete variables agroclimáticas para clasificar 22 tipos de cultivos[cite: 1, 14]. Su investigación resalta la importancia de evaluar el nivel de confianza de los modelos antes de emitir una predicción, utilizando una medida basada en entropía[cite: 1, 14]. El modelo propuesto en su metodología experimental alcanzó una exactitud del 99.54\%, demostrando que la cuantificación de incertidumbre es crucial para garantizar una toma de decisiones sostenible y confiable en entornos agrícolas[cite: 1, 14].
+
+
+\section{Metodología}
+
+\subsection{Preparación de los datos}
+
+La primera etapa consiste en revisar la estructura del conjunto de datos y separar las variables predictoras de la variable objetivo.
+
+Las características utilizadas corresponden a:
+
+\begin{itemize}
+    \item nitrógeno;
+    \item fósforo;
+    \item potasio;
+    \item temperatura;
+    \item humedad;
+    \item pH;
+    \item lluvia.
+\end{itemize}
+
+La variable objetivo corresponde al cultivo.
+
+Se realizará una revisión de valores faltantes, registros duplicados y distribución de las clases. La información obtenida en esta etapa permitirá determinar si es necesario realizar procesos adicionales de limpieza.
+
+Para evitar fuga de información, las transformaciones que aprendan parámetros de los datos, como la estandarización, deberán ajustarse únicamente utilizando los datos correspondientes al conjunto de entrenamiento de cada partición.
+
+
+\subsection{División de los datos}
+
+El conjunto de datos será dividido en tres componentes conceptuales: entrenamiento, validación y prueba.
+
+El conjunto de entrenamiento será utilizado para ajustar los modelos. Dentro de este conjunto se aplicará validación cruzada estratificada para seleccionar los hiperparámetros.
+
+El conjunto de prueba permanecerá separado durante el proceso de selección de hiperparámetros y será utilizado únicamente para obtener una estimación final del desempeño del modelo seleccionado.
+
+La estratificación permite conservar aproximadamente la distribución de las clases en las diferentes particiones.
+
+
+\subsection{Validación cruzada}
+
+La selección de hiperparámetros se realizará utilizando validación cruzada estratificada.
+
+En una validación cruzada de $k$ particiones, el conjunto de entrenamiento se divide en $k$ subconjuntos. En cada iteración, uno de los subconjuntos se utiliza para validar y los restantes se utilizan para entrenar.
+
+El procedimiento permite obtener diferentes estimaciones del desempeño y reducir la dependencia de una única partición de los datos.
+
+Para cada métrica se calculará el promedio obtenido en las diferentes particiones:
+
+\begin{equation}
+\bar{m}=\frac{1}{k}\sum_{i=1}^{k}m_i
+\end{equation}
+
+También se calculará la desviación estándar de las métricas obtenidas en las diferentes particiones.
+
+Cuando sea posible, se reportará adicionalmente un intervalo de confianza del 95\% utilizando:
+
+\begin{equation}
+IC_{95\%}=
+\bar{m}\pm
+t_{0.975,k-1}
+\frac{s}{\sqrt{k}}
+\end{equation}
+
+donde $\bar{m}$ representa el promedio de la métrica, $s$ su desviación estándar y $t_{0.975,k-1}$ el valor correspondiente de la distribución t de Student.
+
+
+\section{Modelos de aprendizaje automático}
+
+Con el propósito de comparar diferentes familias de algoritmos se seleccionaron cinco modelos principales.
+
+
+\subsection{Regresión logística}
+
+La regresión logística constituye el modelo paramétrico utilizado en el proyecto.
+
+Aunque originalmente se emplea para problemas binarios, puede extenderse a problemas multiclase mediante estrategias como One-vs-Rest o formulaciones multinomiales.
+
+El modelo permite establecer una relación entre las características de entrada y la probabilidad de pertenencia a cada clase.
+
+La regresión logística sirve como referencia paramétrica para comparar modelos con mayor capacidad de representar relaciones no lineales.
+
+
+\subsection{K-Nearest Neighbors}
+
+K-Nearest Neighbors es utilizado como modelo no paramétrico.
+
+El método clasifica una nueva observación a partir de las clases de sus vecinos más cercanos. La cantidad de vecinos utilizados constituye uno de sus principales hiperparámetros.
+
+Debido a que el cálculo de distancias es sensible a la escala de las variables, se aplicará estandarización antes del entrenamiento del modelo.
+
+
+\subsection{Random Forest}
+
+Random Forest corresponde al modelo basado en un ensamble de árboles de decisión.
+
+El algoritmo construye múltiples árboles utilizando diferentes muestras y subconjuntos de características. La combinación de las predicciones permite obtener una clasificación más robusta que la de un único árbol.
+
+Entre sus principales hiperparámetros se consideran el número de árboles, la profundidad máxima y el número de características consideradas en cada división.
+
+
+\subsection{Red neuronal artificial}
+
+La red neuronal utilizada corresponde a un perceptrón multicapa o Multi-Layer Perceptron.
+
+La arquitectura está compuesta por una o más capas ocultas y una capa de salida correspondiente al número de clases del problema.
+
+Durante el entrenamiento, los pesos de la red se ajustan para minimizar una función de pérdida. Para clasificación multiclase puede utilizarse una función de pérdida basada en entropía cruzada.
+
+La configuración de la arquitectura y sus hiperparámetros se evaluará experimentalmente.
+
+
+\subsection{Support Vector Machine}
+
+Support Vector Machine busca establecer una frontera de decisión que permita separar las diferentes clases.
+
+Para capturar relaciones no lineales se utilizará el kernel radial de base gaussiana, conocido como RBF.
+
+Los principales hiperparámetros considerados serán $C$ y $\gamma$, los cuales controlan respectivamente la penalización de errores y la influencia de cada observación sobre la frontera de decisión.
+
+
+\section{Configuración de hiperparámetros}
+
+La búsqueda de hiperparámetros se realizará mediante validación cruzada sobre el conjunto de entrenamiento.
+
+Para la regresión logística se evaluarán diferentes valores del parámetro $C$, por ejemplo:
+
+\begin{itemize}
+    \item $C=0.01$;
+    \item $C=0.1$;
+    \item $C=1$;
+    \item $C=10$;
+    \item $C=100$.
+\end{itemize}
+
+Para K-Nearest Neighbors se evaluarán diferentes cantidades de vecinos:
+
+\begin{itemize}
+    \item $k=3$;
+    \item $k=5$;
+    \item $k=7$;
+    \item $k=11$;
+    \item $k=15$;
+    \item $k=21$.
+\end{itemize}
+
+Para Random Forest se estudiarán diferentes cantidades de árboles y profundidades:
+
+\begin{itemize}
+    \item número de árboles: 50, 100 y 200;
+    \item profundidad máxima: 5, 10, 20 y sin límite;
+    \item número de características por división: square root y log2.
+\end{itemize}
+
+Para la red neuronal se estudiarán diferentes arquitecturas:
+
+\begin{itemize}
+    \item una capa oculta con 16 neuronas;
+    \item una capa oculta con 32 neuronas;
+    \item dos capas ocultas de 16 neuronas;
+    \item dos capas ocultas de 32 neuronas;
+    \item dos capas ocultas de 32 y 16 neuronas.
+\end{itemize}
+
+También se considerarán diferentes valores del parámetro de regularización $\alpha$.
+
+Para Support Vector Machine con kernel RBF se evaluarán diferentes valores de $C$ y $\gamma$:
+
+\begin{itemize}
+    \item $C=0.1$, $1$, $10$ y $100$;
+    \item $\gamma=$ scale, $0.01$, $0.1$ y $1$.
+\end{itemize}
+
+La combinación final de hiperparámetros será seleccionada utilizando el desempeño obtenido durante la validación cruzada.
+
+
+\sectionsection{Métricas de evaluación}
+
+Para evaluar los modelos se utilizarán diferentes métricas de clasificación.
+
+La exactitud o accuracy corresponde a la proporción de predicciones correctas:
+
+\begin{equation}
+Accuracy =
+\frac{TP+TN}{TP+TN+FP+FN}
+\end{equation}
+
+En problemas multiclase se utilizará también precisión, recall y F1-score.
+
+Para una clase $c$, la precisión se define como:
+
+\begin{equation}
+Precision_c =
+\frac{TP_c}{TP_c+FP_c}
+\end{equation}
+
+El recall se define como:
+
+\begin{equation}
+Recall_c =
+\frac{TP_c}{TP_c+FN_c}
+\end{equation}
+
+El F1-score corresponde a la media armónica entre precisión y recall:
+
+\begin{equation}
+F1_c =
+2\frac{Precision_c Recall_c}
+{Precision_c+Recall_c}
+\end{equation}
+
+Debido a que el problema contiene múltiples clases, se utilizará principalmente el promedio macro de estas métricas cuando sea necesario dar el mismo peso a cada cultivo.
+
+También se considerará el error de clasificación:
+
+\begin{equation}
+Error=1-Accuracy
+\end{equation}
+
+Esta métrica permite relacionar directamente los resultados con los conceptos trabajados durante los laboratorios del curso.
+
+
+\section{Análisis individual de las características}
+
+Antes de aplicar las técnicas de reducción de dimensionalidad se realizará un análisis individual de las características.
+
+El propósito es identificar variables con poca capacidad discriminativa y analizar la relación entre cada característica y la variable objetivo.
+
+Para este análisis se podrán utilizar medidas como la información mutua y pruebas estadísticas de discriminación entre clases.
+
+También se analizará la distribución de las variables para identificar diferencias entre los cultivos.
+
+Es importante aclarar que una característica con baja relación individual con la variable objetivo no necesariamente debe eliminarse. Una variable puede aportar información cuando se combina con otras características.
+
+Por esta razón, una variable únicamente será considerada candidata a eliminación cuando el análisis individual y los experimentos de validación indiquen que su eliminación no produce una disminución relevante del desempeño.
+
+
+\section{Reducción de dimensionalidad}
+
+\subsection{Principal Component Analysis}
+
+Principal Component Analysis permite transformar las variables originales en un nuevo conjunto de componentes lineales.
+
+Los componentes se obtienen a partir de combinaciones lineales de las características originales y se ordenan de acuerdo con la cantidad de varianza explicada.
+
+La transformación puede expresarse como:
+
+\begin{equation}
+Z=XP
+\end{equation}
+
+donde $X$ representa la matriz original de características, $P$ corresponde a la matriz de componentes principales y $Z$ representa la nueva representación de los datos.
+
+Para determinar el número de componentes se analizará la varianza acumulada explicada. Como criterio inicial se considerará conservar al menos el 95\% de la varianza.
+
+Posteriormente se volverán a evaluar los dos modelos que hayan presentado el mejor desempeño en la solución completa.
+
+
+\subsection{Evaluación con PCA}
+
+Una vez determinado el número de componentes, los modelos seleccionados serán entrenados utilizando únicamente la representación obtenida mediante PCA.
+
+Se compararán los resultados obtenidos con los modelos originales para determinar si la reducción de dimensionalidad mantiene un desempeño similar.
+
+La reducción porcentual del número de características se calculará mediante:
+
+\begin{equation}
+Reduccion=
+\left(
+1-\frac{d_{PCA}}{d_{original}}
+\right)100
+\end{equation}
+
+donde $d_{PCA}$ corresponde al número de componentes seleccionados y $d_{original}$ corresponde al número de características iniciales.
+
+
+\subsection{Uniform Manifold Approximation and Projection}
+
+UMAP es una técnica de reducción de dimensionalidad no lineal que busca busca preservar relaciones relevantes entre las observaciones.
+
+A diferencia de PCA, que realiza una transformación lineal, UMAP permite representar estructuras no lineales presentes en los datos.
+
+En el proyecto se estudiará el comportamiento de diferentes configuraciones de parámetros como el número de vecinos y la distancia mínima.
+
+Entre los parámetros que podrán evaluarse se encuentran:
+
+\begin{itemize}
+    \item número de vecinos: 5, 10, 15 y 30;
+    \item distancia mínima: 0, 0.1 y 0.5;
+    \item número de componentes: 2 y 3.
+\end{itemize}
+
+La selección de los parámetros deberá realizarse utilizando únicamente información disponible en el conjunto de entrenamiento para evitar fuga de información.
+
+
+\subsection{Evaluación con UMAP}
+
+Después de seleccionar la configuración de UMAP, se evaluarán nuevamente los dos mejores modelos obtenidos en la solución completa.
+
+Los resultados se compararán con los obtenidos utilizando todas las características originales y con los obtenidos mediante PCA.
+
+El análisis permitirá determinar si una representación no lineal puede mantener o mejorar el desempeño de los modelos utilizando un menor número de dimensiones.
+
+
+\section{Resultados}
+
+\subsection{Resultados de los modelos}
+
+Los resultados finales de los modelos deberán obtenerse a partir de la ejecución del notebook correspondiente al proyecto.
+
+Para cada modelo se reportarán los resultados obtenidos en entrenamiento, validación y prueba.
+
+Los valores que deberán incluirse son:
+
+\begin{itemize}
+    \item accuracy;
+    \item error de clasificación;
+    \item precision;
+    \item recall;
+    \item F1-score;
+    \item desviación estándar obtenida durante la validación;
+    \item intervalo de confianza cuando corresponda.
+\end{itemize}
+
+No se utilizarán resultados generados artificialmente. Los valores finales deberán corresponder exactamente a las ejecuciones realizadas sobre el conjunto de datos utilizado en el proyecto.
+
+
+\subsection{Análisis de los hiperparámetros}
+
+Además de comparar los modelos, se analizará el efecto de los hiperparámetros sobre el desempeño.
+
+En el caso de KNN se estudiará el efecto del número de vecinos sobre la clasificación.
+
+Para Random Forest se analizará el efecto del número de árboles y de la profundidad máxima.
+
+Para la red neuronal se comparará el comportamiento de las diferentes arquitecturas.
+
+En Support Vector Machine se estudiará principalmente el comportamiento de los parámetros $C$ y $\gamma$.
+
+Finalmente, para la regresión logística se analizará el efecto del parámetro de regularización $C$.
+
+
+\subsection{Comparación de los modelos}
+
+La comparación final tendrá en cuenta tanto el desempeño promedio obtenido durante la validación como el resultado sobre el conjunto de prueba.
+
+Un modelo no será considerado únicamente por obtener la mayor exactitud. También se analizará la estabilidad de sus resultados entre las particiones, el comportamiento del error y las métricas por clase.
+
+Este análisis permitirá determinar qué modelos presentan un comportamiento consistente y cuáles pueden presentar problemas de generalización.
+
+
+\section{Resultados de PCA}
+
+Después de determinar el número apropiado de componentes principales, los dos modelos con mejor desempeño serán evaluados nuevamente utilizando la representación reducida.
+
+El análisis deberá incluir:
+
+\begin{itemize}
+    \item número original de características;
+    \item número de componentes seleccionados;
+    \item porcentaje de reducción;
+    \item porcentaje de varianza acumulada;
+    \item desempeño de los modelos;
+    \item diferencia respecto al modelo original.
+\end{itemize}
+
+La comparación permitirá determinar si la reducción lineal de dimensionalidad mantiene un desempeño adecuado y si simplifica la representación de los datos.
+
+
+\section{Resultados de UMAP}
+
+El mismo procedimiento se realizará utilizando UMAP.
+
+Se estudiará el efecto del número de componentes y de los parámetros utilizados por la técnica.
+
+Posteriormente se evaluarán nuevamente los dos modelos seleccionados.
+
+El análisis permitirá determinar si una representación no lineal proporciona ventajas frente a la representación original y frente a PCA.
+
+Además del desempeño predictivo, se tendrá en cuenta la reducción en el número de características y la estabilidad observada durante la validación.
+
+
+\section{Discusión}
+
+Los experimentos permitirán analizar las diferencias entre modelos pertenecientes a diferentes familias.
+
+Los modelos paramétricos proporcionan una referencia importante debido a su menor complejidad y facilidad de interpretación. Sin embargo, su capacidad para representar relaciones complejas puede ser inferior a la de modelos no lineales.
+
+KNN permite construir una solución basada directamente en la proximidad entre observaciones, pero su desempeño puede depender considerablemente de la escala de las variables y de la selección del número de vecinos.
+
+Random Forest permite representar relaciones no lineales y combinaciones entre variables mediante múltiples árboles de decisión. Su comportamiento será analizado teniendo en cuenta el número de árboles y la profundidad utilizada.
+
+Las redes neuronales proporcionan una alternativa con capacidad para aprender relaciones no lineales a partir de diferentes arquitecturas. Sin embargo, su desempeño puede depender de la arquitectura, la regularización y el proceso de entrenamiento.
+
+Support Vector Machine permite establecer fronteras de decisión complejas mediante el kernel RBF. Su desempeño puede verse afectado por la selección adecuada de $C$ y $\gamma$.
+
+Finalmente, la reducción de dimensionalidad permitirá estudiar si todas las variables originales son necesarias para obtener un desempeño adecuado. PCA permitirá analizar una reducción lineal, mientras que UMAP permitirá estudiar una representación no lineal.
+
+
+\section{Reproducibilidad}
+
+La reproducibilidad constituye un elemento importante del proyecto.
+
+El código fuente y los experimentos serán organizados en un repositorio de GitHub.
+
+El repositorio deberá contener:
+
+\begin{itemize}
+    \item notebook principal del proyecto;
+    \item conjunto de datos o instrucciones para obtenerlo;
+    \item archivo de requisitos;
+    \item código utilizado para entrenamiento;
+    \item código utilizado para evaluación;
+    \item experimentos de PCA;
+    \item experimentos de UMAP;
+    \item README con instrucciones de ejecución.
+\end{itemize}
+
+El README deberá explicar el proceso de instalación de dependencias, preparación de los datos y ejecución del notebook.
+
+También se deberá indicar la versión de Python utilizada y las principales bibliotecas empleadas.
+
+
+\section{Conclusiones}
+
+El proyecto plantea el desarrollo de un sistema predictivo orientado a la recomendación de cultivos mediante técnicas de aprendizaje automático.
+
+El problema puede formularse como una tarea de clasificación multiclase supervisada debido a que cada observación contiene características relacionadas con el suelo y las condiciones climáticas, además de una etiqueta correspondiente al cultivo.
+
+La comparación de diferentes familias de modelos permitirá estudiar las diferencias entre enfoques paramétricos, no paramétricos, ensambles de árboles, redes neuronales y máquinas de soporte vectorial.
+
+El análisis de las características permitirá identificar cuáles variables presentan mayor capacidad para diferenciar los cultivos y determinar si existen características candidatas a ser eliminadas.
+
+El uso de PCA permitirá estudiar una reducción lineal de las características, mientras que UMAP permitirá analizar una representación no lineal. La comparación de ambas técnicas permitirá establecer si la reducción de dimensionalidad mantiene un desempeño predictivo adecuado.
+
+Los resultados finales deberán ser obtenidos a partir de los experimentos realizados sobre el conjunto de datos. De esta manera, las conclusiones estarán respaldadas por las métricas obtenidas durante la validación y la evaluación sobre el conjunto de prueba.
+
+Como trabajo futuro se podría ampliar el conjunto de datos incorporando información geográfica, condiciones específicas de diferentes regiones, características adicionales del suelo, información histórica de rendimiento y variables económicas.
+
+También sería posible incorporar mecanismos de estimación de incertidumbre para identificar situaciones en las que el modelo tenga baja confianza en una recomendación. Este aspecto ha sido señalado en trabajos recientes como una oportunidad para mejorar la confiabilidad de los sistemas de recomendación agrícola. \cite{alam2025}
+
+
+% Se omite \section{Referencias} para evitar el título duplicado en IEEEtran
+
+\begin{thebibliography}{00}
+
+\bibitem{thilakarathne2022}
+N. N. Thilakarathne, M. S. A. Bakar, P. E. Abas, and H. Yassin,
+``A Cloud Enabled Crop Recommendation Platform for Machine Learning-Driven Precision Farming,''
+\textit{Sensors}, vol. 22, no. 16, p. 6299, 2022,
+doi: 10.3390/s22166299.
+
+\bibitem{dey2024}
+B. Dey, M. Ferdous, and R. Ahmed,
+``Machine learning based recommendation of agricultural and horticultural crop farming in India under the regime of NPK, soil pH and three climatic variables,''
+\textit{Heliyon}, vol. 10, no. 3, e25112, 2024,
+doi: 10.1016/j.heliyon.2024.e25112.
+
+\bibitem{prity2024}
+F. S. Prity, M. M. Hasan, S. H. Saif, M. M. Hossain, S. H. Bhuiyan, M. A. Islam, and M. T. H. Lavlu,
+``Enhancing Agricultural Productivity: A Machine Learning Approach to Crop Recommendations,''
+\textit{Human-Centric Intelligent Systems}, vol. 4, pp. 497--510, 2024,
+doi: 10.1007/s44230-024-00081-3.
+
+\bibitem{alam2025}
+M. S. B. Alam et al.,
+``An approach for crop recommendation with uncertainty quantification based on machine learning for sustainable agricultural decision-making,''
+\textit{Results in Engineering}, vol. 26, p. 105505, 2025,
+doi: 10.1016/j.rineng.2025.105505.
+
+\bibitem{bishop2006}
+C. M. Bishop,
+\textit{Pattern Recognition and Machine Learning}.
+New York, NY, USA: Springer, 2006.
+
+\bibitem{hastie2009}
+T. Hastie, R. Tibshirani, and J. Friedman,
+\textit{The Elements of Statistical Learning}.
+New York, NY, USA: Springer, 2009.
+
+\bibitem{pedregosa2011}
+F. Pedregosa et al.,
+``Scikit-learn: Machine Learning in Python,''
+\textit{Journal of Machine Learning Research},
+vol. 12, pp. 2825--2830, 2011.
+
+\bibitem{mcinnes2018}
+L. McInnes, J. Healy, and J. Melville,
+``UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction,''
+arXiv:1802.03426, 2018.
+
+\bibitem{kumar_dataset}
+A. Kumar, ``Crop Recommendation Dataset,'' Kaggle. [En línea]. Disponible en: https://www.kaggle.com/datasets/aksahaha/crop-recommendation
+
+\end{thebibliography}
+
+
+\section{Anexos}
+
+Los anexos complementan la información presentada en el documento y contienen los recursos necesarios para reproducir los experimentos desarrollados durante el proyecto.
+
+
+\subsection{Repositorio del proyecto}
+
+El código fuente del proyecto es gestionado mediante GitHub y se encuentra disponible públicamente en el siguiente enlace:
+
+\begin{center} 
+    \\url{https://github.com/crd10lop/ml-crop-recommendation.git} 
+\end{center}
+
+El repositorio contiene el notebook reproducible, los archivos de configuración, las instrucciones de ejecución y los recursos necesarios para la replicación de los experimentos.
+
+
+\subsection{Notebook reproducible}
+
+El notebook incluirá las siguientes etapas:
+
+\begin{enumerate}
+
+    \item Carga del conjunto de datos.
+
+    \item Exploración inicial de los datos.
+
+    \item Revisión de valores faltantes y registros duplicados.
+
+    \item Separación de variables predictoras y variable objetivo.
+
+    \item División entre entrenamiento y prueba.
+
+    \item Estandarización de las variables cuando corresponda.
+
+    \item Entrenamiento de los cinco modelos.
+
+    \item Selección de hiperparámetros mediante validación cruzada.
+
+    \item Evaluación de los modelos.
+
+    \item Análisis individual de características.
+
+    \item Aplicación de PCA.
+
+    \item Evaluación de los dos mejores modelos con PCA.
+
+    \item Aplicación de UMAP.
+
+    \item Evaluación de los dos mejores modelos con UMAP.
+
+    \item Comparación final de resultados.
+
+\end{enumerate}
+
+
+\subsection{Consideraciones para los resultados}
+
+Los valores numéricos correspondientes a los experimentos deberán ser obtenidos directamente desde el notebook final.
+
+No se deben introducir resultados estimados o tomados de otros artículos como si fueran resultados propios del proyecto.
+
+Los resultados publicados en los trabajos utilizados para el estado del arte se emplean únicamente como referencia para contextualizar el problema y comparar metodologías.
+
+\end{document}
+```
+
